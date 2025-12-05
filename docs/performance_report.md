@@ -6,7 +6,7 @@
 ```powershell
 python scripts/perf_report.py `
   --question "RAG 管线的瓶颈是什么？" `
-  --runs 3 `
+  --runs 10 `
   --persist-dir data/vector_store `
   --embedding ollama:bge-m3 `
   --model qwen3:8b
@@ -26,9 +26,10 @@ python scripts/perf_report.py `
 | 1   | ...          | ...           | ...      | ...         |
 | 2   | ...          | ...           | ...      | ...         |
 | 3   | ...          | ...           | ...      | ...         |
+| ... | ...          | ...           | ...      | ...         |
 | 平均 | ...         | ...           | ...      | ...         |
 
 ## 观察（示例）
 - KISS：单进程即可得到 <1s 级响应，无需额外服务。
 - YAGNI：在小语料下未启用 rerank/缓存，保持最少组件便于调优。
-- DRY/SOLID：性能脚本复用 `RagPipeline`，避免重复实现计时与调用逻辑。
+- DRY/SOLID：性能脚本复用 `RagPipeline`，避免重复实现计时与调用逻辑；RAGAS 质量评估通过本地 Ollama LLM/Embedding 运行，无需外部 API。

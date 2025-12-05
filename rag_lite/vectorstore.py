@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Iterable
 
@@ -9,6 +10,18 @@ from langchain_community.embeddings import HuggingFaceBgeEmbeddings, OllamaEmbed
 from langchain_community.vectorstores import Chroma
 
 from .config import RagSettings
+
+
+def _auto_device() -> str:
+    env_device = os.getenv("RAG_DEVICE")
+    if env_device:
+        return env_device
+    try:
+        import torch
+
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    except Exception:
+        return "cpu"
 
 
 def _resolve_ollama_model(model_name: str) -> tuple[bool, str]:
@@ -30,7 +43,7 @@ def create_embeddings(model_name: str, base_url: str) -> Embeddings:
         # Use Ollama embedding endpoint (default model tag when present).
         return OllamaEmbeddings(model=resolved_name, base_url=base_url)
 
-    model_kwargs = {"device": "cpu"}
+    model_kwargs = {"device": _auto_device()}
     encode_kwargs = {"normalize_embeddings": True}
     query_instruction = None
 

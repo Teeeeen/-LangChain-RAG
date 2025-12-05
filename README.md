@@ -1,7 +1,6 @@
 ﻿# 轻量化本地 RAG 系统
 
 基于 LangChain + Chroma + 本地 LLM（默认 Ollama）的一站式 RAG 原型，支持 CLI 问答、FastAPI 接口和 Streamlit 前端。默认向量库目录在 `data/`，前端已简化为单文件 Streamlit（`frontend/app.py`）。
-数据库采用 ModelScope 的Chinese-Laws（数据集作者 dengcao）
 
 ## 环境要求
 - Python 3.10+
@@ -22,6 +21,7 @@
    ollama serve   # 或 ollama run qwen3:8b，退出用 /exit
    ```
    - 如在 WSL/远程主机运行 Ollama，可设置 `RAG_OLLAMA_BASE_URL` 指向服务地址（默认 `http://localhost:11434`）
+   - 若希望在 WSL2/本地使用 GPU 运行 HuggingFace Embedding，可设置 `RAG_DEVICE=cuda`（默认自动检测 CUDA，失败则回退 CPU）
 
 3) 构建向量库（默认使用 Ollama BGE-M3 embedding）
    ```powershell
@@ -59,12 +59,28 @@
    ```powershell
    python scripts/perf_report.py `
      --question "RAG 管线的瓶颈是什么？" `
-     --runs 3 `
+     --runs 10 `
      --persist-dir data/vector_store `
      --embedding ollama:bge-m3 `
      --model qwen3:8b
    ```
    输出检索/生成耗时、总耗时、峰值内存与示例答案，可记录到 `docs/performance_report.md`。
+
+## 工程模块与流程
+- 核心模块
+  - `rag_lite/config.py`：集中默认配置与环境变量加载。
+  - `rag_lite/loaders.py`：文档加载与分块（文本/PDF + 递归切分）。
+  - `rag_lite/vectorstore.py`：Embedding 工厂（Ollama/HF）与 Chroma 构建/加载。
+  - `rag_lite/pipeline.py`：统一的 RAG 流水线，封装 ingest/ask。
+  - `rag_lite/cli.py`：Typer CLI（`ingest`/`ask`）。
+  - `rag_lite/server.py`：FastAPI 接口（/api/health、/api/chat 等）。
+  - `frontend/app.py`：Streamlit 前端（侧边栏配置 + 聊天主区）。
+  - `scripts/perf_report.py`：性能与 RAGAS 质量评测脚本。
+
+- 典型流程
+  1) Ingest：`load_documents` -> `split_documents` -> `create_embeddings` -> `Chroma.from_documents` 持久化。
+  2) Ask：`load_vector_store` -> `retriever.get_relevant_documents` -> 模板渲染 -> `Ollama` 生成 -> 返回答案/来源/耗时。
+  3) 前后端：CLI/Server/Streamlit 均复用同一 `RagPipeline`，配置可通过参数或环境变量注入，确保 DRY/OCP。
 
 ## 配置项
 - 环境变量可覆盖默认值：`RAG_DATA_PATH`、`RAG_PERSIST_DIR`、`RAG_COLLECTION`、`RAG_EMBEDDING_MODEL`、`RAG_LLM_MODEL`、`RAG_OLLAMA_BASE_URL`、`RAG_TEMPERATURE`、`RAG_TOP_K`、`RAG_CHUNK_SIZE`、`RAG_CHUNK_OVERLAP`
